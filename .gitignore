@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs / temp files
+*.log
+*.tmp
+.cache/
+
+# Node — not used here but in case you add tooling later
+node_modules/
+package-lock.json
+yarn.lock
+
+# Generated test output
+*.stl
