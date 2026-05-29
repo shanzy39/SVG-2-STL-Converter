@@ -1,12 +1,14 @@
 # ⬡ SVG 2 STL Converter
 
-A free, client-side web tool that turns **SVG vectors** into a **3D-printable STL** file. Drop in a logo, icon, or outlined shape, adjust the depth, and download a mesh ready for your slicer — all in your browser, nothing uploaded.
+A free, client-side web tool that turns **SVG vectors** or **typed text** into a **3D-printable STL** file. Drop in a logo, icon, or outlined shape — or just type some words — adjust the depth, and download a mesh ready for your slicer — all in your browser, nothing uploaded.
 
 > Live demo: https://shanzy39.github.io/SVG-2-STL-Converter/
 
 ## Features
 
+- **Two input modes** — convert an **SVG** vector, or extrude **typed text**
 - **Drag & drop, browse, or paste** SVG markup
+- **Text mode** with a choice of fonts (Helvetiker, Optimer, Gentilis — regular & bold)
 - **Live 3D preview** you can rotate, pan, and zoom
 - **Extrude** flat shapes to any depth
 - **Scale** to a target size in millimeters
@@ -17,7 +19,7 @@ A free, client-side web tool that turns **SVG vectors** into a **3D-printable ST
 
 ## How it works
 
-1. The SVG is parsed into 2D shapes with Three.js `SVGLoader`
+1. Shapes are collected from the input — **SVG mode** parses paths with Three.js `SVGLoader`, **Text mode** generates glyph shapes with `FontLoader`
 2. Each shape is extruded into 3D with `ExtrudeGeometry`
 3. The model is scaled, centered, and rested flat on the print bed
 4. `STLExporter` writes a standard binary `.stl` file you can download
@@ -55,7 +57,7 @@ python3 -m http.server 8000
 
 ## Built with
 
-- [three.js](https://threejs.org) — `SVGLoader`, `ExtrudeGeometry`, `STLExporter`, `OrbitControls` (loaded via [esm.sh](https://esm.sh))
+- [three.js](https://threejs.org) — `SVGLoader`, `FontLoader`, `ExtrudeGeometry`, `STLExporter`, `OrbitControls` (loaded via [esm.sh](https://esm.sh))
 - No frameworks, no build tools, single HTML file
 
 ## Companion projects
