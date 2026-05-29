@@ -1,6 +1,6 @@
 # ⬡ SVG 2 STL Converter
 
-A free, client-side web tool that turns any **SVG vector** into a **3D-printable STL** file. Drop in a logo, icon, or outlined shape, adjust the depth, and download a mesh ready for your slicer — all in your browser, nothing uploaded.
+A free, client-side web tool that turns **SVG vectors** into a **3D-printable STL** file. Drop in a logo, icon, or outlined shape, adjust the depth, and download a mesh ready for your slicer — all in your browser, nothing uploaded.
 
 > Live demo: https://shanzy39.github.io/SVG-2-STL-Converter/
 
