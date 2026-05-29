@@ -88,6 +88,32 @@
     text-transform: uppercase; letter-spacing: .6px;
   }
 
+  .tabs { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .tab {
+    flex: 1; background: var(--panel); color: var(--muted);
+    border: none; border-right: 1px solid var(--border);
+    padding: 9px; font-size: 12px; cursor: pointer; font-family: var(--mono);
+    text-transform: uppercase; letter-spacing: .8px;
+  }
+  .tab:last-child { border-right: none; }
+  .tab:hover { color: var(--accent); }
+  .tab.active { background: var(--accent); color: #04141f; font-weight: 700; }
+
+  .text-input {
+    width: 100%; resize: vertical; min-height: 80px;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px; font-size: 14px; font-family: var(--mono);
+    line-height: 1.4;
+  }
+  .text-input:focus { outline: none; border-color: var(--accent); }
+  select.font-select {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px; font-size: 12.5px; font-family: var(--mono); cursor: pointer;
+  }
+  select.font-select:focus { outline: none; border-color: var(--accent); }
+
   .row { margin-top: 18px; }
   .row label {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -197,16 +223,38 @@
 
   <main>
     <section class="controls">
-      <div id="drop" class="drop" tabindex="0">
-        <strong>Drop an SVG here</strong>
-        click to browse · or paste SVG markup
-        <input id="fileInput" type="file" accept=".svg,image/svg+xml" hidden />
+      <div class="tabs">
+        <button class="tab active" data-mode="svg">SVG</button>
+        <button class="tab" data-mode="text">Text</button>
       </div>
 
-      <div class="samples">
-        <button data-sample="star">★ Star</button>
-        <button data-sample="heart">♥ Heart</button>
-        <button data-sample="bolt">⚡ Bolt</button>
+      <div id="svgPanel">
+        <div id="drop" class="drop" tabindex="0">
+          <strong>Drop an SVG here</strong>
+          click to browse · or paste SVG markup
+          <input id="fileInput" type="file" accept=".svg,image/svg+xml" hidden />
+        </div>
+
+        <div class="samples">
+          <button data-sample="star">★ Star</button>
+          <button data-sample="heart">♥ Heart</button>
+          <button data-sample="bolt">⚡ Bolt</button>
+        </div>
+      </div>
+
+      <div id="textPanel" style="display:none;">
+        <textarea id="textInput" class="text-input" placeholder="Type text to extrude…">HELLO</textarea>
+        <div class="row">
+          <label>Font</label>
+          <select id="fontSelect" class="font-select">
+            <option value="https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_regular.typeface.json">Helvetiker — Sans</option>
+            <option value="https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json">Helvetiker — Sans Bold</option>
+            <option value="https://unpkg.com/three@0.160.0/examples/fonts/optimer_regular.typeface.json">Optimer — Serif</option>
+            <option value="https://unpkg.com/three@0.160.0/examples/fonts/optimer_bold.typeface.json">Optimer — Serif Bold</option>
+            <option value="https://unpkg.com/three@0.160.0/examples/fonts/gentilis_regular.typeface.json">Gentilis — Rounded</option>
+            <option value="https://unpkg.com/three@0.160.0/examples/fonts/gentilis_bold.typeface.json">Gentilis — Rounded Bold</option>
+          </select>
+        </div>
       </div>
 
       <div class="section-title">Shape</div>
@@ -272,6 +320,7 @@
     import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
     import { STLExporter } from 'three/addons/exporters/STLExporter.js';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 
     // ---------- DOM ----------
     const $ = (id) => document.getElementById(id);
@@ -292,8 +341,11 @@
     };
 
     let currentSvgText = null;   // raw svg string
+    let currentText = null;      // text string for text mode
+    let mode = 'svg';            // 'svg' | 'text'
     let mesh = null;             // THREE.Group with extruded shapes
     let exportName = 'model.stl';
+    const fontCache = new Map(); // url -> loaded font
 
     // ---------- three.js scene ----------
     const canvas = $('viewer');
@@ -362,9 +414,6 @@
         return;
       }
 
-      const depth = +ctl.depth.value;
-      const bevel = +ctl.bevel.value;
-
       // collect all shapes from all paths
       const allShapes = [];
       for (const path of data.paths) {
@@ -376,6 +425,53 @@
         setStatus('No fillable shapes found. This SVG may use only strokes, text, or embedded images.', 'err');
         return;
       }
+
+      // SVG y-axis points down -> flip so it prints upright
+      extrudeShapes(allShapes, true);
+    }
+
+    // ---------- build geometry from text ----------
+    function buildFromText(text) {
+      const trimmed = (text || '').trim();
+      if (!trimmed) {
+        setStatus('Type some text to extrude.', 'info');
+        return;
+      }
+      const url = $('fontSelect').value;
+
+      const run = (font) => {
+        let shapes;
+        try {
+          shapes = font.generateShapes(trimmed, 100);
+        } catch (e) {
+          setStatus('Could not render this text with the selected font.', 'err');
+          return;
+        }
+        if (!shapes.length) {
+          setStatus('No glyphs to extrude.', 'err');
+          return;
+        }
+        // font shapes are already y-up -> no flip
+        extrudeShapes(shapes, false);
+      };
+
+      if (fontCache.has(url)) {
+        run(fontCache.get(url));
+      } else {
+        setStatus('Loading font…', 'info');
+        new FontLoader().load(
+          url,
+          (font) => { fontCache.set(url, font); run(font); },
+          undefined,
+          () => setStatus('Could not load font.', 'err')
+        );
+      }
+    }
+
+    // ---------- shared extrude + normalize ----------
+    function extrudeShapes(allShapes, flipY) {
+      const depth = +ctl.depth.value;
+      const bevel = +ctl.bevel.value;
 
       const group = new THREE.Group();
       const mat = new THREE.MeshStandardMaterial({
@@ -397,8 +493,8 @@
         group.add(new THREE.Mesh(geo, mat));
       }
 
-      // SVG y-axis points down; flip so it prints upright
-      group.scale.y = -1;
+      // SVG y-axis points down; flip so it prints upright (text is already y-up)
+      if (flipY) group.scale.y = -1;
 
       // ----- normalize: scale to target size, center, sit on bed -----
       let box = new THREE.Box3().setFromObject(group);
@@ -478,8 +574,11 @@
     }
 
     function rebuild() {
-      if (!currentSvgText) return;
-      buildFromSvg(currentSvgText);
+      if (mode === 'text') {
+        if (currentText) buildFromText(currentText);
+      } else {
+        if (currentSvgText) buildFromSvg(currentSvgText);
+      }
     }
 
     // ---------- input handling ----------
@@ -563,6 +662,45 @@
         const key = b.dataset.sample;
         loadSvgText(SAMPLES[key], key);
         setStatus(`Loaded sample: ${key}`, 'info');
+      });
+    });
+
+    // ---------- text mode ----------
+    const textInput = $('textInput');
+    const fontSelect = $('fontSelect');
+
+    function loadText(text) {
+      currentText = text;
+      const slug = (text || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32);
+      exportName = (slug || 'text') + '.stl';
+      setStatus('Building text…', 'info');
+      requestAnimationFrame(() => buildFromText(text));
+    }
+
+    let textDebounce;
+    textInput.addEventListener('input', () => {
+      clearTimeout(textDebounce);
+      textDebounce = setTimeout(() => loadText(textInput.value), 200);
+    });
+    fontSelect.addEventListener('change', () => loadText(textInput.value));
+
+    // ---------- tab switching ----------
+    document.querySelectorAll('.tab').forEach((t) => {
+      t.addEventListener('click', () => {
+        const next = t.dataset.mode;
+        if (next === mode) return;
+        mode = next;
+        document.querySelectorAll('.tab').forEach((x) =>
+          x.classList.toggle('active', x.dataset.mode === mode));
+        $('svgPanel').style.display = mode === 'svg' ? '' : 'none';
+        $('textPanel').style.display = mode === 'text' ? '' : 'none';
+        if (mode === 'text') {
+          loadText(textInput.value);
+        } else if (currentSvgText) {
+          buildFromSvg(currentSvgText);
+        } else {
+          setStatus('Load an SVG to begin.', 'info');
+        }
       });
     });
   </script>
