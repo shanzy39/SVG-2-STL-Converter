@@ -1,4 +1,4 @@
-# ⬡ SVG 2 STL Converter
+# <img src="icon.svg" width="28" height="28" align="center" alt=""> SVG 2 STL Converter
 
 A free, client-side web tool that turns **SVG vectors** or **typed text** into a **3D-printable STL** file. Drop in a logo, icon, or outlined shape — or just type some words — adjust the depth, and download a mesh ready for your slicer — all in your browser, nothing uploaded.
 
